@@ -1,0 +1,22 @@
+//Conditional: 0 = Less Than;1 = greater than
+[
+  {
+    "CategoryName": "HIGHRISK",
+    "Client": "Private",
+    "Value": 1000000,
+    "Conditional": 1
+  },
+  {
+    "CategoryName": "MEDIUMRISK",
+    "Client": "Public",
+    "Value": 1000000,
+    "Conditional": 1
+  },
+  {
+    "CategoryName": "LOWRISK",
+    "Client": "Public",
+    "Value": 1000000,
+    "Conditional": 0
+  }
+
+]
