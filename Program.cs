@@ -74,7 +74,7 @@ namespace IdentifyCategories
                                         }
                                         else
                                         {
-                                            throw new InvalidOperationException("Data não suportada");
+                                            throw new InvalidOperationException();
                                         }
                                         break;
                                     case 1:
@@ -85,13 +85,18 @@ namespace IdentifyCategories
                                         }
                                         else
                                         {
-                                            throw new InvalidOperationException("Numero de trades inválidos");
+                                            throw new InvalidOperationException();
                                         }
 
                                         break;
                                     default:
 
                                         var lineArr = line.Split(" ");
+
+                                        if (lineArr.Length < 2)
+                                        {
+                                            throw new InvalidOperationException();
+                                        }
 
                                         portifolio.trades.Add(
                                             new Trade(
