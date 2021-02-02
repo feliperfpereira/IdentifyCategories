@@ -1,8 +1,10 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Reflection;
+using System.Threading;
 
 namespace IdentifyCategories
 {
@@ -10,29 +12,16 @@ namespace IdentifyCategories
     {
         static void Main(string[] args)
         {
-            Console.WriteLine("Hello World!");
-            var portfolio = new List<ITrade>()
-            {
-                new Trade(2000000, "Private"),
-                new Trade(400000, "Public"),
-                new Trade(500000, "Public"),
-                new Trade(3000000, "Public"),
-                //new Trade(100_000, "Private"),
-            };
-
+            Console.WriteLine("Please insert input data in DefaultDir/Sampleinput.txt !");
 
             var rules = Logic.loadCategory();
-            /*
-                Input:
-                Trade1 {Value = 2000000; ClientSector = "Private"}
-                Trade2 {Value = 400000; ClientSector = "Public"}
-                Trade3 {Value = 500000; ClientSector = "Public"}
-                Trade4 {Value = 3000000; ClientSector = "Public"}
-                portfolio = {Trade1, Trade2, Trade3, Trade4}
-                Output:
-                tradeCategories = {"HIGHRISK", "LOWRISK", "LOWRISK", "MEDIUMRISK"}
-                */
+            var portfolio = Logic.GetPortifolio();
             var result = Logic.VerifyRisk(rules, portfolio);
+
+            foreach (var item in result)
+            {
+                Console.WriteLine(item);
+            }
         }
 
         #region Logica/Obtenção de dados
@@ -50,16 +39,100 @@ namespace IdentifyCategories
                 return items;
             }
 
-            public static List<string> VerifyRisk(List<CategoryRules> rules, List<ITrade> trades)
+            public static Portifolio GetPortifolio()
+            {
+                Portifolio portifolio = new Portifolio();
+                portifolio.trades = new List<ITrade>();
+                Stream stream = null;
+                string line;
+                string path = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), @"File\Sampleinput.txt");
+                try
+                {
+
+
+                    stream = new FileStream(path, FileMode.OpenOrCreate);
+
+                    // Open the text file using a stream reader.
+                    using (var sr = new StreamReader(stream))
+                    {
+                        stream = null;
+                        var lineNumber = 0;
+
+                        while ((line = sr.ReadLine()) != null)
+                        {
+
+                            if (line.Length > 0)
+                            {
+                                switch (lineNumber)
+                                {
+                                    case 0:
+
+                                        DateTime date;
+                                        if (DateTime.TryParseExact(line, "MM/dd/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out date))
+                                        {
+                                            portifolio.ReferenceDate = date;
+                                        }
+                                        else
+                                        {
+                                            throw new InvalidOperationException("Data não suportada");
+                                        }
+                                        break;
+                                    case 1:
+                                        int qtdTrades;
+                                        if (int.TryParse(line, out qtdTrades))
+                                        {
+                                            portifolio.TradesCount = qtdTrades;
+                                        }
+                                        else
+                                        {
+                                            throw new InvalidOperationException("Numero de trades inválidos");
+                                        }
+
+                                        break;
+                                    default:
+
+                                        var lineArr = line.Split(" ");
+
+                                        portifolio.trades.Add(
+                                            new Trade(
+                                                Convert.ToDouble(lineArr[0]),
+                                                lineArr[1],
+                                                DateTime.ParseExact(lineArr[2], "MM/dd/yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None)
+                                                )
+                                            );
+                                        break;
+                                }
+
+                            }
+
+                            lineNumber++;
+                        }
+
+                    }
+                }
+                catch (IOException ex)
+                {
+                    Console.WriteLine("The file could not be read:");
+                    Console.WriteLine(ex.Message);
+                }
+                finally
+                {
+                    if (stream != null)
+                        stream.Dispose();
+                }
+                return portifolio;
+            }
+
+            public static List<string> VerifyRisk(List<CategoryRules> rules, Portifolio portifolio)
             {
                 List<string> lst = new List<string>();
 
-                foreach (var trade in trades)
+                foreach (var trade in portifolio.trades)
                 {
                     bool find = false;
                     foreach (var rule in rules)
                     {
-                        if (compareTradeRule(rule, trade))
+                        if (compareTradeRule(rule, trade, portifolio.ReferenceDate))
                         {
                             lst.Add(rule.CategoryName);
                             find = true;
@@ -74,7 +147,7 @@ namespace IdentifyCategories
                 return lst;
             }
 
-            public static bool compareTradeRule(CategoryRules rule, ITrade trade)
+            public static bool compareTradeRule(CategoryRules rule, ITrade trade, DateTime ReferenceDate)
             {
                 if (trade.ClientSector == rule.Client)
                 {
@@ -88,6 +161,12 @@ namespace IdentifyCategories
                             break;
                         case ConditionalRule.GreaterThen:
                             if (trade.Value > rule.Value)
+                            {
+                                return true;
+                            }
+                            break;
+                        case ConditionalRule.DelayInDays:
+                            if ((ReferenceDate - trade.NextPaymentDate).TotalDays > rule.Value)
                             {
                                 return true;
                             }
@@ -115,29 +194,43 @@ namespace IdentifyCategories
         public enum ConditionalRule
         {
             LessThan,
-            GreaterThen
+            GreaterThen,
+            DelayInDays
         }
 
         public interface ITrade
         {
             double Value { get; }
             string ClientSector { get; }
+            DateTime NextPaymentDate { get; }
         }
 
         public class Trade : ITrade
         {
             public Trade(
                  double value,
-                 string clientSector)
+                 string clientSector,
+                 DateTime nextPaymentDate
+                 )
             {
                 Value = value;
                 ClientSector = clientSector;
+                NextPaymentDate = nextPaymentDate;
+
             }
             public double Value { get; private set; }
             public string ClientSector { get; private set; }
             public string Risk { get; private set; }
+            public DateTime NextPaymentDate { get; private set; }
         }
 
+        public class Portifolio
+        {
+            public DateTime ReferenceDate { get; set; }
+            public int TradesCount { get; set; }
+            public List<ITrade> trades { get; set; }
+
+        }
         #endregion
     }
 }

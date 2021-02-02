@@ -1,4 +1,4 @@
-//Conditional: 0 = Less Than;1 = greater than
+//Conditional: 0 = Less Than;1 = greater than;2 = payment date is late in days
 [
   {
     "CategoryName": "HIGHRISK",
@@ -13,10 +13,11 @@
     "Conditional": 1
   },
   {
-    "CategoryName": "LOWRISK",
+    "CategoryName": "DEFAULTED",
     "Client": "Public",
-    "Value": 1000000,
-    "Conditional": 0
+    "Value": 30,
+    "Conditional": 2
   }
 
 ]
+
